@@ -1,4 +1,4 @@
-﻿
+
 
 ###########################################################
 # CypherDog2.1 - BloodHound Dog Whisperer - @SadProcessor #
@@ -16,7 +16,8 @@
 # - 2.1        > Test new Edges                         [X] <- Re-collect
 
 ###########################################################
-
+# ! Run "Install-Module -Name ClipboardText"
+# ! once to install Clipboard support for Core
 
 ###########################################################
 #region ############################################## VARS
@@ -135,6 +136,8 @@ Class BHEdge{
 $CypherDog = [PSCustomObject]@{
     Host         = 'localhost'
     Port         = 7474
+    User         = 'neo4j'
+    Pass         = 'bloodhound'
     UserList     = $Null
     GroupList    = $Null
     ComputerList = $Null
@@ -326,7 +329,7 @@ Function ClipThis{
     # Verbose
     Write-Verbose "$Query"
     # Clipboard
-    $Query | Set-ClipBoard
+    $Query | Set-ClipboardText
     # Return Query
     Return $Query
     }
@@ -348,7 +351,7 @@ function JoinCypher{
         )
     Begin{$QCollection = @()}
     Process{foreach($Q in $Queries){$QCollection+=$Q}}
-    End{$Out=$QCollection-join"`r`nUNION ALL`r`n";$Out|Set-clipboard;Return $Out}
+    End{$Out=$QCollection-join"`r`nUNION ALL`r`n";$Out|Set-ClipboardText;Return $Out}
     }
 #End
 
@@ -493,7 +496,7 @@ function Send-BloodHoundPost{
     else{$Body = @{query=$Query}|Convertto-Json}
     # Call
     write-verbose $Body.replace(')\u003c-',')<-').replace('-\u003e(','->(').replace('\r','').replace('\n',' ').replace('\u0027',"'")
-    $Reply = Try{Invoke-RestMethod -Uri $Uri -Method Post -Headers $Header -Body $Body}Catch{$Oops = $Error[0].ErrorDetails.Message}
+    $Reply = Try{Invoke-RestMethod -Uri $Uri -Method Post -credential (New-Object System.Management.Automation.PSCredential ($CypherDog.User, (ConvertTo-SecureString $CypherDog.Pass -AsPlainText -Force))) -AllowUnencryptedAuthentication -Headers $Header -Body $Body}Catch{$Oops = $Error[0].ErrorDetails.Message}
     # Format obj
     if($Oops){Write-Warning "$((ConvertFrom-Json $Oops).message)";Return}
     if($Expand){$Expand | %{$Reply = $Reply.$_}} 
@@ -1374,7 +1377,7 @@ function Get-BloodHoundEdgeCrossDomain{
         }
     $PathQ = "MATCH p=((S:$Source)-[r:$Edge*1]->(T:$Target)) 
 WHERE NOT S.domain = T.domain"
-    if($Cypher){$Clip =  "$PathQ`r`nRETURN p"; Set-Clipboard $Clip; Return $Clip}
+    if($Cypher){$Clip =  "$PathQ`r`nRETURN p"; Set-ClipboardText $Clip; Return $Clip}
     #Call
     dogpost "$PathQ
 WITH p,
@@ -1390,7 +1393,7 @@ Target: Tname
 } as Obj" -Expand Data |
     Select -expand Syncroot | 
     Add-Member -MemberType NoteProperty -Name Edge -Value $Edge -PassThru | 
-    Select From,to,Source,Edge,Target | Sort From,To,Target
+    Select From,to,Source,Edge,Target | Sort-Object From,To,Target
     }
 #End
 
@@ -1500,7 +1503,7 @@ ORDER BY c DESC
 $Lim"
             }
         # Output
-        If($cypher){$Q = "$Q1 RETURN p";Set-clipBoard $Q;Return $Q}
+        If($cypher){$Q = "$Q1 RETURN p";Set-ClipboardText $Q;Return $Q}
         Else{
             DogPost $Q2 -Expand Data| Select -Expand SyncRoot
             }}}
@@ -2383,7 +2386,7 @@ function Get-BloodHoundPathCost{
                 Hop=$_.Count
                 Path=$_.Group
                 }}
-        Return $Result | Sort Cost,Hop
+        Return $Result | Sort-Object Cost,Hop
         }}
 #####End
 
@@ -2607,7 +2610,7 @@ function Measure-BloodhoundWald0IOAvg{
         $Null=$Collect.add($Obj)
         }}
     End{
-        foreach($Dom in ($Collect.Domain|Sort -unique)){
+        foreach($Dom in ($Collect.Domain|Sort-Object -unique)){
             foreach($Dir in 'Inbound','Outbound'){
                 $x = $Collect | where Domain -eq $Dom |Where Direction -eq $Dir
                 if($X){
